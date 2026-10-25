@@ -1,0 +1,29 @@
+services:
+  emerald-boost:
+    build: .
+    image: emerald-boost:0.3.0
+    restart: unless-stopped
+    ports:
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-8080}:8000"
+    environment:
+      HEATER_DRIVER: ${HEATER_DRIVER:-demo}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
+      EMERALD_DEVICE_ID: ${EMERALD_DEVICE_ID:-}
+      TZ: Australia/Melbourne
+      DATA_DIR: /data
+    volumes:
+      - ${APP_DATA_PATH:-boost-data}:/data
+    stop_grace_period: 120s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+volumes:
+  boost-data:

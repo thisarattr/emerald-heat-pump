@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#124b3e">
+  <title>Emerald Boost</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <a href="/" class="brand"><span class="brand-mark" aria-hidden="true">e<span>↗</span></span><span>emerald<span class="brand-sub">BOOST CONTROLLER</span></span></a>
+    <div class="header-actions"><span class="location"><span class="location-dot"></span> Berwick, VIC <span class="location-zone">/ Melbourne time</span></span>{% if not state.demo %}<form action="/logout" method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="logout-button" type="submit" id="logout-button">{{ 'End boost & sign out' if state.active else 'Sign out' }}</button></form>{% endif %}</div>
+  </header>
+
+  {% if state.demo %}<aside class="demo-banner"><span class="pill">DEMO</span> Try the schedule and controls. No commands are sent to your heat pump.</aside>{% endif %}
+  {% if message %}<div class="notice" role="status">{{ message }}</div>{% endif %}
+  <div id="poll-error" class="notice error" role="alert" hidden>Connection to controller lost. Display may be out of date. Reconnecting…</div>
+
+  <main>
+    <div class="intro"><div><p class="eyebrow">HOT WATER, ON YOUR TIME</p><h1>A little boost.<br>Ahead of your day.</h1><p class="lede">Set a time. Let your heat pump take it from there.</p></div><div class="intro-meta"><span class="tiny-label">YOUR HEAT PUMP</span><strong>Emerald All-In-One</strong><span>EE-HWS-A1-320 · 320 L</span></div></div>
+
+    <section class="status-card" aria-label="Heat pump status">
+      <div class="status-main"><span class="tiny-label">REPORTED MODE</span><div class="mode-row"><span class="mode-orb" aria-hidden="true">↗</span><h2 id="heater-mode">{{ state.heater.mode }}</h2></div><p id="heater-detail">{{ state.heater.detail }}</p></div>
+      <div class="status-divider"></div>
+      <div class="status-next"><span class="tiny-label" id="next-label">NEXT SCHEDULED BOOST</span><strong id="next-start">Loading…</strong><span id="next-detail">{{ state.timezone }}</span></div>
+      <div class="status-tag" id="schedule-tag">{{ 'Schedule on' if state.schedule.enabled else 'Schedule paused' }}</div>
+    </section>
+
+    <div class="content-grid">
+      <section class="card schedule-card">
+        <div class="card-heading"><div><p class="eyebrow">01 / YOUR ROUTINE</p><h2>Boost schedule</h2></div><span class="line-icon" aria-hidden="true">◷</span></div>
+        <form action="/schedule" method="post" id="schedule-form">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <div class="enable-row"><div><label for="enabled">Enable automatic boost</label><p>Run on your selected days.</p></div><label class="switch"><input id="enabled" name="enabled" type="checkbox" {% if state.schedule.enabled %}checked{% endif %}><span class="switch-track"></span></label></div>
+          <div class="time-grid"><div><label class="field-label" for="start_time">START TIME</label><input id="start_time" name="start_time" type="time" value="{{ state.schedule.start_time }}" required><span class="field-hint">Melbourne local time · adjusts for daylight saving</span></div><div><label class="field-label" for="duration">BOOST DURATION</label><div class="duration-input"><input id="duration" name="duration" type="number" min="5" max="720" value="{{ state.schedule.duration }}" required><span>minutes</span></div><span class="field-hint">Then return to Standard mode</span></div></div>
+          <fieldset><legend class="field-label">REPEAT ON</legend><div class="day-picker">{% for day in days %}<label class="day"><input type="checkbox" name="days" value="{{ loop.index0 }}" {% if loop.index0 in state.schedule.days %}checked{% endif %}><span>{{ day[:3] }}</span></label>{% endfor %}</div></fieldset>
+          <div class="schedule-summary"><span aria-hidden="true">↻</span><p id="schedule-summary">One boost per selected day. Save changes to apply.</p></div>
+          <button class="button primary" type="submit">Save schedule <span aria-hidden="true">↗</span></button>
+          <p class="form-footnote">Pausing the schedule prevents future starts. An active boost keeps its original end time.</p>
+        </form>
+      </section>
+
+      <div class="side-stack">
+        <section class="card manual-card"><p class="eyebrow">02 / NEED IT SOONER?</p><h2>Boost on demand</h2><p>Start a boost now using your saved duration. Your regular schedule stays in place.</p><div class="manual-state" id="active-message">No active boost window.</div><form action="/boost" method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button secondary" type="submit" id="boost-button">Boost now <span aria-hidden="true">↗</span></button></form><form action="/stop" method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="text-button" id="stop-button" type="submit" {% if not state.active %}disabled{% endif %}>End boost · return to Standard</button></form></section>
+        <aside class="how-card"><span class="small-icon" aria-hidden="true">i</span><div><h3>Simple by design.</h3><p>This controller manages boost windows. Your heat pump still manages heating, temperature and its own protection cycles.</p><p>Emerald cloud access is required in live mode. If unavailable, returning to Standard may be delayed.</p></div></aside>
+      </div>
+    </div>
+
+    {% if not state.demo %}<section class="card credentials-card"><div><p class="eyebrow">YOUR LOGIN, YOUR CHOICE</p><h2>Saved login</h2><p id="saved-login-status">{{ 'Encrypted login saved. Automatic re-login enabled.' if state.saved_login else 'Saving disabled. Current session only.' }}</p><p id="auth-error" role="status">{{ state.auth_error or '' }}</p><a href="/login">Sign in again{% if not state.saved_login %} to enable encrypted saving{% endif %}</a></div><form method="post" action="/credentials/forget" id="forget-form" {% if not state.saved_login %}hidden{% endif %}><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button secondary" type="submit">Disable saving &amp; delete saved login</button><p>Current session stays active.</p></form></section>{% endif %}
+    <section class="card activity-card"><div class="activity-heading"><div><p class="eyebrow">03 / KEEPING TRACK</p><h2>Recent activity</h2></div><span class="live-label"><span class="location-dot"></span> Updates every 10 seconds</span></div><div id="activity-list" aria-live="polite"><p class="empty-state">Your activity will appear here.</p></div></section>
+  </main>
+  <footer><span>emerald boost <span class="footer-version">/ v0.3</span></span><span id="local-clock">{{ state.local_time }}</span></footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#124b3e">
+  <title>Sign in · Emerald Boost</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="shell login-shell">
+  <header class="topbar"><a href="/" class="brand"><span class="brand-mark" aria-hidden="true">e<span>↗</span></span><span>emerald<span class="brand-sub">BOOST CONTROLLER</span></span></a><span class="location">Berwick, VIC</span></header>
+  <main class="login-main">
+    <p class="eyebrow">A FRESH START, EVERY SESSION</p>
+    <h1>Your hot water.<br>Your login.</h1>
+    <p class="lede">Sign in with the account you use in the Emerald app.</p>
+    <section class="card login-card" aria-label="Emerald sign in">
+      {% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
+      {% if transport_ok %}<form method="post" action="/login" autocomplete="off">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label class="field-label" for="email">EMERALD EMAIL</label>
+        <input class="login-input" id="email" name="email" type="email" maxlength="320" autocomplete="off" required>
+        <label class="field-label" for="password">EMERALD PASSWORD</label>
+        <input class="login-input" id="password" name="password" type="password" maxlength="1024" autocomplete="off" required>
+        <label class="remember-row"><input type="checkbox" id="remember" name="remember" {% if saved_login %}checked{% endif %} {% if not saving_available and not saved_login %}disabled{% endif %}><span>Remember login on this server</span></label>
+        <p class="remember-help">{% if saving_available %}Save encrypted credentials for automatic re-login. Leaving this unchecked deletes any saved login after you sign in successfully.{% else %}Encrypted storage is unavailable. Sign in without saving, or configure it using the setup guide.{% endif %}</p>
+        <button class="button primary" type="submit">Sign in <span aria-hidden="true">↗</span></button>
+      </form>{% else %}<p class="notice error">Open this controller through your HTTPS reverse proxy before signing in. Credentials cannot be entered over this HTTP connection.</p>{% endif %}
+      <p class="login-note">Session tokens stay in server memory. Credentials are saved encrypted only when you choose Remember login.</p>
+    </section>
+    <aside class="how-card"><span class="small-icon" aria-hidden="true">i</span><div><h3>Choose what this server remembers.</h3><p>With saving enabled, the controller can sign itself in again after expiry or a restart. Otherwise, automation waits for your next sign-in. Signing out pauses automation until you sign in again.</p></div></aside>
+  </main>
+  <footer><span>emerald boost / v0.3</span><span>Credential saving is your choice</span></footer>
+</div>
+</body>
+</html>
