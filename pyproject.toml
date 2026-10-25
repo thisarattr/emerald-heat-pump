@@ -1,6 +1,6 @@
 [project]
 name = "emerald-boost"
-version = "0.3.1"
+version = "0.3.2"
 description = "A small, persistent boost scheduler for Emerald hot-water heat pumps."
 requires-python = ">=3.12"
 dependencies = [

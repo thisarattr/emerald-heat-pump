@@ -100,7 +100,7 @@ These volumes survive ordinary image updates and container recreation. Back up b
 
 ### Updating and rolling back
 
-New releases publish `ghcr.io/thisarattr/emerald-heat-pump:stable` and a numbered tag such as `0.3.1`. `stable` follows the most recently published release. The separate `edge` tag follows successful builds from `main` and is intended for development.
+New releases publish `ghcr.io/thisarattr/emerald-heat-pump:stable` and a numbered tag such as `0.3.2`. `stable` follows the most recently published release. The separate `edge` tag follows successful builds from `main` and is intended for development.
 
 1. Back up the persistent data and key before upgrading. Finish any active boost first when possible.
 2. In **Apps → Installed → emerald-boost → ⋮ → Update**, apply an available image update. If TrueNAS does not offer it, use **Manage Container Images → Pull Image** for `ghcr.io/thisarattr/emerald-heat-pump:stable`, then redeploy the custom app through Edit/Update. Both template services use `pull_policy: always` to request the current image on deployment. [TrueNAS update documentation](https://apps.truenas.com/managing-apps/managing-installed-apps/).
@@ -108,7 +108,7 @@ New releases publish `ghcr.io/thisarattr/emerald-heat-pump:stable` and a numbere
 
 You do not repeat installation, create new storage or regenerate the key for routine updates. YAML changes are only needed when a release introduces new configuration.
 
-To pin a version or roll back, replace **both** image references in the YAML with a compatible numbered tag, such as `ghcr.io/thisarattr/emerald-heat-pump:0.3.1`, then save. Check release notes for database compatibility before downgrading. Keep the same app name and volumes.
+To pin a version or roll back, replace **both** image references in the YAML with a compatible numbered tag, such as `ghcr.io/thisarattr/emerald-heat-pump:0.3.2`, then save. Check release notes for database compatibility before downgrading. Keep the same app name and volumes.
 
 ### Publishing releases
 
@@ -117,8 +117,8 @@ To pin a version or roll back, replace **both** image references in the YAML wit
 For a release, update the version in `pyproject.toml` and the local development image tag in `compose.yaml`, run `uv lock` and the checks, commit and push, then tag that commit:
 
 ```sh
-git tag v0.3.1
-git push origin v0.3.1
+git tag v0.3.2
+git push origin v0.3.2
 ```
 
 Use the new version for subsequent releases. The workflow rejects a release tag that does not match `pyproject.toml`. On the first publication, the repository owner must change the GitHub package visibility to **Public** in [package settings](https://github.com/users/thisarattr/packages/container/emerald-heat-pump/settings); GitHub defaults newly created packages to private. This is a one-time registry setting, not a setting on each TrueNAS installation. Keep the package public for anonymous installation and updates.

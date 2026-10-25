@@ -40,7 +40,7 @@ jobs:
           tag = os.environ["RELEASE_TAG"]
           version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
           if not re.fullmatch(r"v\d+\.\d+\.\d+", tag) or tag != f"v{version}":
-              raise SystemExit("Release tag must match the project version, for example v0.3.1")
+              raise SystemExit("Release tag must match the project version, for example v0.3.2")
           PY
 
   publish:
@@ -85,6 +85,6 @@ jobs:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           docker run -d --name smoke -e HEATER_DRIVER=demo -p 127.0.0.1:18080:8000 "$IMAGE@$DIGEST"
-          trap 'docker rm -f smoke' EXIT
-          curl --fail --retry 20 --retry-connrefused --retry-delay 2 http://127.0.0.1:18080/healthz
+          trap 'docker logs smoke; docker rm -f smoke' EXIT
+          curl --fail --retry 20 --retry-all-errors --retry-delay 2 http://127.0.0.1:18080/healthz
           curl --fail http://127.0.0.1:18080/api/status
