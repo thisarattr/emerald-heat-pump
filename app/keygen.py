@@ -1,5 +1,6 @@
 import argparse
 import os
+import stat
 from pathlib import Path
 
 from cryptography.fernet import Fernet
@@ -14,11 +15,29 @@ def generate(path: Path):
         os.fsync(key.fileno())
 
 
+def ensure(path: Path):
+    try:
+        generate(path)
+    except FileExistsError:
+        metadata = path.lstat()
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_mode & 0o077
+            or metadata.st_uid != os.geteuid()
+            or metadata.st_size > 128
+        ):
+            raise ValueError(
+                "Existing encryption key has unsafe ownership or permissions."
+            ) from None
+        Fernet(path.read_bytes().strip())
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Create a private encryption key without printing it."
     )
+    parser.add_argument("--if-missing", action="store_true")
     parser.add_argument("path", type=Path)
     args = parser.parse_args()
-    generate(args.path)
-    print(f"Key created at {args.path}. Grant read access only to the app's UID.")
+    (ensure if args.if_missing else generate)(args.path)
+    print(f"Key ready at {args.path}. Grant read access only to the app's UID.")

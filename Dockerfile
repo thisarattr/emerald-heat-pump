@@ -9,7 +9,8 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt \
     && useradd --uid 10001 --create-home controller \
-    && mkdir /data && chown controller:controller /data
+    && mkdir /data /key-init && chown controller:controller /data /key-init \
+    && chmod 700 /key-init
 COPY app ./app
 USER controller
 EXPOSE 8000

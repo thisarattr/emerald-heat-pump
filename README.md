@@ -4,6 +4,8 @@ A small web app that starts an Emerald hot-water heat pump in boost mode on a we
 
 Python 3.12, FastAPI, server-rendered HTML, a small amount of JavaScript, and SQLite. One container and one worker. No external database or task queue.
 
+For TrueNAS, use the published image **`ghcr.io/thisarattr/emerald-heat-pump:stable`** and [ready-to-paste configuration](compose.truenas.yaml). No source checkout, build commands, manual encryption-key creation or host-directory permissions are required. See [TrueNAS setup and updates](#truenas-25x).
+
 ## Try it locally
 
 With [uv](https://docs.astral.sh/uv/):
@@ -84,26 +86,44 @@ Temporary login/network failures back off for five minutes. A rejected saved pas
 
 ## TrueNAS 25.x
 
-Use **Apps → Discover Apps → Install via YAML** on versions supporting Docker-based custom apps. The exact menu depends on your TrueNAS release. The ready-to-edit template is `compose.truenas.yaml`.
+Use **Apps → Discover Apps → ⋮ → Install via YAML**. The exact menu depends on your TrueNAS release. If Apps has not been configured, select its storage pool first. [TrueNAS documentation](https://www.truenas.com/docs/scale/25.10/scaleuireference/apps/installcustomappscreens/).
 
-1. Put this project in a source dataset, for example `/mnt/tank/apps/emerald-boost/source`.
-2. Create a separate persistent dataset at `/mnt/tank/apps/emerald-boost/data`. Grant UID/GID 10001 write access.
-3. Replace the two example paths in the template. Leave `HEATER_DRIVER: demo` initially. No credentials belong in the YAML. For optional saving, follow the key-mount instructions below.
-4. Paste the YAML into the custom app installer. It builds the image from the source directory. If your version cannot build there, run `docker compose -f compose.truenas.yaml build` in the TrueNAS shell first; then remove `build:` from the YAML and deploy the local image.
-5. Open `http://YOUR_TRUENAS_IP:8080`. Change the published port if another app uses it.
-6. Configure HTTPS and the trusted proxy IP, change the driver to `emerald`, and redeploy. Sign in through the web UI. Demo and live use separate databases, so the first live start has its schedule paused and no demo runs to recover. Then run the live compatibility check above.
+1. Name the app `emerald-boost` and paste [compose.truenas.yaml](compose.truenas.yaml) into Custom Config.
+2. Set `FORWARDED_ALLOW_IPS` to your HTTPS reverse proxy's actual source IP. The proxy should forward to `http://TRUENAS_IP:8080` and send `X-Forwarded-Proto: https`. Keep `COOKIE_SECURE: "true"`. Change port `8080` in the YAML if needed. HTTPS setup is separate from installing this app; opening the HTTP address directly will not permit login.
+3. Save. TrueNAS downloads the published Linux image; both Intel/AMD and ARM64 are supported. No registry login is needed for the public image. The `prepare-key` service runs once per deployment and exits successfully; this is expected. It creates a private key in its own persistent volume only when missing, and validates an existing key without replacing it.
+4. Open your HTTPS address and sign in with the account used by the official Emerald app. **Remember login** is initially unchecked. Check it if you want automatic sign-in after updates, restarts or token expiry. Credentials remain encrypted in the database; the key is a separate file mounted read-only in the controller.
+5. Leave the schedule paused until Boost and return-to-Standard are confirmed against the official app. Stop any controller running on your Mac before enabling the TrueNAS schedule.
 
-To enable optional saving on TrueNAS, create a private secrets dataset outside the app data dataset, for example `/mnt/tank/app-secrets`. After building the image, generate the key without printing it:
+The template creates two persistent Docker volumes: `boost-data` for the database and `credential-key` for the private encryption-key file. The app runs as UID/GID 10001. Docker initializes ownership automatically. No TrueNAS source dataset, manual key command, Git installation or image build is needed.
+
+These volumes survive ordinary image updates and container recreation. Back up both, protecting the key backup separately; do not delete their volumes when editing or updating the app. Removing an app and its storage can delete its settings and saved credentials. Losing the key prevents decrypting an existing saved login. Back up the database while the controller is stopped, or use SQLite's backup API. Advanced users can replace the data volume with an existing host dataset; grant UID/GID 10001 write access first. Preserve the same volume or host path when migrating an existing installation.
+
+### Updating and rolling back
+
+New releases publish `ghcr.io/thisarattr/emerald-heat-pump:stable` and a numbered tag such as `0.3.1`. `stable` follows the most recently published release. The separate `edge` tag follows successful builds from `main` and is intended for development.
+
+1. Back up the persistent data and key before upgrading. Finish any active boost first when possible.
+2. In **Apps → Installed → emerald-boost → ⋮ → Update**, apply an available image update. If TrueNAS does not offer it, use **Manage Container Images → Pull Image** for `ghcr.io/thisarattr/emerald-heat-pump:stable`, then redeploy the custom app through Edit/Update. Both template services use `pull_policy: always` to request the current image on deployment. [TrueNAS update documentation](https://apps.truenas.com/managing-apps/managing-installed-apps/).
+3. Settings and encrypted saved credentials stay in the existing volumes. Memory-only tokens are lost during a restart. With Remember login enabled, the controller can sign in automatically; otherwise, sign in again. An explicit Sign out still pauses automatic sign-in until a manual login.
+
+You do not repeat installation, create new storage or regenerate the key for routine updates. YAML changes are only needed when a release introduces new configuration.
+
+To pin a version or roll back, replace **both** image references in the YAML with a compatible numbered tag, such as `ghcr.io/thisarattr/emerald-heat-pump:0.3.1`, then save. Check release notes for database compatibility before downgrading. Keep the same app name and volumes.
+
+### Publishing releases
+
+[The Container workflow](.github/workflows/container.yaml) runs lint and tests before publishing images to GitHub Container Registry using its built-in `GITHUB_TOKEN`. Actions are pinned to commit SHAs. Pull requests run checks without registry write permissions. Pushes to `main` publish `edge`; version tags publish `stable`, the full version and a commit tag for Linux AMD64 and ARM64. A published image also receives a demo-mode health check.
+
+For a release, update the version in `pyproject.toml` and the local development image tag in `compose.yaml`, run `uv lock` and the checks, commit and push, then tag that commit:
 
 ```sh
-docker run --rm --user 0:0 -v /mnt/tank/app-secrets:/keys emerald-boost:0.3.0 python -m app.keygen /keys/emerald-boost.key
-chown 10001:10001 /mnt/tank/app-secrets/emerald-boost.key
-chmod 400 /mnt/tank/app-secrets/emerald-boost.key
+git tag v0.3.1
+git push origin v0.3.1
 ```
 
-In your custom app YAML, add the equivalent of `compose.credentials.yaml`: set `CREDENTIAL_KEY_FILE` to `/run/secrets/emerald_key`, grant the service the `emerald_key` secret, and point its top-level `file:` to `/mnt/tank/app-secrets/emerald-boost.key`. This file must exist before deployment. Keep secret contents out of YAML. Alternatively combine both files with `CREDENTIAL_KEY_PATH` set to that absolute source path. Then sign in and explicitly check Remember login.
+Use the new version for subsequent releases. The workflow rejects a release tag that does not match `pyproject.toml`. On the first publication, the repository owner must change the GitHub package visibility to **Public** in [package settings](https://github.com/users/thisarattr/packages/container/emerald-heat-pump/settings); GitHub defaults newly created packages to private. This is a one-time registry setting, not a setting on each TrueNAS installation. Keep the package public for anonymous installation and updates.
 
-For an ordinary Docker host, use `compose.yaml` and `.env` instead. Both deployments keep `/data` outside the container, so updates retain schedules and active deadlines. Back up the data dataset while the container is stopped, or use SQLite's backup API for a consistent live backup.
+For local development, `compose.yaml` still builds from source and uses demo mode by default. The TrueNAS template can also be used on another Docker Compose host with the same HTTPS setup.
 
 ## Scheduling and recovery
 

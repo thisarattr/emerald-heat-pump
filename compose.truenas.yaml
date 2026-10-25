@@ -1,22 +1,37 @@
-# Replace both /mnt/tank paths with your actual pool/dataset paths.
-# Build the image in the source dataset first, or load a prebuilt image.
 services:
+  prepare-key:
+    image: ghcr.io/thisarattr/emerald-heat-pump:stable
+    pull_policy: always
+    command: [python, -m, app.keygen, --if-missing, /key-init/emerald.key]
+    restart: "no"
+    volumes:
+      - credential-key:/key-init
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
   emerald-boost:
-    build: /mnt/tank/apps/emerald-boost/source
-    image: emerald-boost:0.3.0
+    image: ghcr.io/thisarattr/emerald-heat-pump:stable
+    pull_policy: always
+    depends_on:
+      prepare-key:
+        condition: service_completed_successfully
     restart: unless-stopped
     ports:
       - "8080:8000"
     environment:
-      HEATER_DRIVER: demo
+      HEATER_DRIVER: emerald
       COOKIE_SECURE: "true"
       # Set this to your HTTPS reverse proxy's actual source IP.
       FORWARDED_ALLOW_IPS: "127.0.0.1"
       EMERALD_DEVICE_ID: ""
       TZ: Australia/Melbourne
       DATA_DIR: /data
+      CREDENTIAL_KEY_FILE: /run/emerald-key/emerald.key
     volumes:
-      - /mnt/tank/apps/emerald-boost/data:/data
+      - boost-data:/data
+      - credential-key:/run/emerald-key:ro
     stop_grace_period: 120s
     security_opt:
       - no-new-privileges:true
@@ -27,3 +42,7 @@ services:
       options:
         max-size: "5m"
         max-file: "2"
+
+volumes:
+  boost-data:
+  credential-key:
